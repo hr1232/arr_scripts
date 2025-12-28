@@ -1,0 +1,6 @@
+#!/bin/bash
+
+# Sonarr connection details
+SONARR_IP="10.10.10.5"
+SONARR_PORT="8989"
+SONARR_APIKEY="b340163d89c344f695fd46f7e76fc1c8"
