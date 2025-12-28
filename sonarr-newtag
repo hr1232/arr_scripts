@@ -1,11 +1,12 @@
 #!/bin/bash
 
+env > /config/sonarr_env.log
 SETTINGS="/etc/arr_scripts"
 
 ###############################################################################
 
 # filter by event (only run for newly imported episodes
-if [ "$sonarr_eventtype" != "EpisodeImported" ]; then
+if [ "$sonarr_eventtype" != "Download" ]; then
     exit 0
 fi
 

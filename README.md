@@ -13,6 +13,9 @@ sonarr-newtag
   This one is designed to be run as a Sonarr Connect Script. Whenever a new
   episode is added, it will add a tag to the series, thereby marking it for
   later conversion by sonar-convert.
+  Just add it as a Custom Script under Settings-->Connect and also make sure
+  that your Sonarr user has execute privileges. If you run Sonarr on Docker
+  also make sure that the settings-file is available inside the container.
 
 sonarr-orphan
 -------------
