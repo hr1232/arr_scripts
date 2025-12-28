@@ -1,29 +1,35 @@
 #!/bin/bash
 
-# -------------------------------
-# Einstellungen
-# -------------------------------
+SETTINGS="/etc/arr_scripts"
 
-# Sonarr Anbindung
-SONARR_IP="10.10.10.5"
-SONARR_PORT="8989"
-SONARR_APIKEY="b340163d89c344f695fd46f7e76fc1c8"
+###############################################################################
 
-# API Basis-URL
+# load settings
+if [ ! -f "${SETTINGS}" ]; then
+  echo "❎ Settings-Datei nicht lesbar: ${SETTINGS}"
+  exit 1
+else
+  source "${SETTINGS}"
+fi
+
+# sonarr api call function
 BASE_URL="http://${SONARR_IP}:${SONARR_PORT}/api/v3"
+sonarr_api() {
+    local endpoint="$1"
+    curl -s -H "X-Api-Key: $SONARR_APIKEY" "http://$SONARR_IP:$SONARR_PORT/api/v3/$endpoint"
+}
 
-# Serien abfragen, die beendet sind
-series_json=$(curl -s -G "${BASE_URL}/series" --data-urlencode "apikey=${SONARR_APIKEY}" | jq '[.[] | select(.status=="ended")]')
+# cycle through all ended tv shows
+series_json=$(sonarr_api "series" )
+echo "$series_json" | jq -r '.[] | select(.status=="ended") | .title + "|" + (.id|tostring)' | while IFS="|" read -r title id; do
 
-# Durch jede Serie iterieren
-echo "$series_json" | jq -r '.[] | .title + "|" + (.id|tostring)' | while IFS="|" read -r title id; do
-    # Episoden dieser Serie abfragen
+    # get all episodes
     episodes_json=$(curl -s -G "${BASE_URL}/episode" --data-urlencode "seriesId=${id}" --data-urlencode "apikey=${SONARR_APIKEY}")
     
-    # Episoden filtern: Staffel != 0 und kein AirDate
+    # filter episodes (everything without airdate, except season 0)
     filtered_episodes=$(echo "$episodes_json" | jq -r '.[] | select(.seasonNumber != 0 and (.airDate == null or .airDate == "")) | "\(.seasonNumber|tostring) \(.episodeNumber|tostring) \(.title)"')
     
-    # Nur ausgeben, wenn es Episoden gibt
+    # if episodes were found, list them
     if [[ -n "$filtered_episodes" ]]; then
         echo "$title"
         while read -r season episode ep_title; do
