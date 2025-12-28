@@ -8,6 +8,12 @@ sonarr-airdate
   This script will find those episodes that don't have an airdate and print
   them out nicely so you can fill in the missing data on TheTVDB.
 
+sonarr-newflag
+--------------
+  This one is designed to be run as a Sonarr Connect Script. Whenever a new
+  episode is added, it will add a tag to the series, thereby marking it for
+  later conversion by sonar-convert.
+
 sonarr-orphan
 -------------
   Metadata for Sonarr is provided from TheTVDB. While that is mostly very
