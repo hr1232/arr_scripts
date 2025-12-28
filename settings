@@ -4,3 +4,7 @@
 SONARR_IP="10.10.10.5"
 SONARR_PORT="8989"
 SONARR_APIKEY="your-api-code-goes-here"
+
+# Flags
+NEW_FLAG="vidconv_new"		# flag to be added when new episodes were added
+ERROR_FLAG="vidconv_error"	# flag to be added when conversion errors occured

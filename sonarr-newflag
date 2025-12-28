@@ -1,0 +1,54 @@
+#!/bin/bash
+
+SETTINGS="/etc/arr_scripts"
+
+###############################################################################
+
+# filter by event (only run for newly imported episodes
+if [ "$sonarr_eventtype" != "EpisodeImported" ]; then
+    exit 0
+fi
+
+# load settings
+if [ ! -f "${SETTINGS}" ]; then
+  echo "❎ Settings-Datei nicht lesbar: ${SETTINGS}"
+  exit 1
+else
+  source "${SETTINGS}"
+fi
+BASE_URL="http://${SONARR_IP}:${SONARR_PORT}/api/v3"
+
+# fetch tag id / create tag if it doesn't exist yet
+existing_tags=$(curl -s "${BASE_URL}/tag?apikey=$SONARR_APIKEY")
+if [[ -z "$existing_tags" ]]; then
+    exit 1
+fi
+tag_id=$(echo "$existing_tags" | jq -r ".[] | select(.label==\"$NEW_TAG\") | .id")
+if [[ -z "$tag_id" ]]; then
+    create_tag_payload="{\"label\":\"$NEW_TAG\"}"
+    curl -s -X POST \
+         -H "Content-Type: application/json" \
+         -d "$create_tag_payload" \
+         "${BASE_URL}/tag?apikey=$SONARR_APIKEY" >>/dev/null
+    existing_tags=$(curl -s "${BASE_URL}/tag?apikey=$SONARR_APIKEY")
+    tag_id=$(echo "$existing_tags" | jq -r ".[] | select(.label==\"$NEW_TAG\") | .id")
+fi
+if [[ -z "$tag_id" ]]; then
+    exit 1
+fi
+
+# fetch series json
+series_json=$(curl -s "${BASE_URL}/series/${sonarr_series_id}?apikey=$SONARR_APIKEY")
+if [[ -z "$series_json" ]]; then
+    exit 1
+fi
+
+# check if tag exists and add it if necessary
+if echo "$series_json" | jq ".tags | index($tag_id)" | grep -qv null; then
+    echo "Flag '${NEW_FLAG}' ist bereits gesetzt für Serie '${sonarr_series_title}'."
+    exit 0
+else
+    updated_series_json=$(echo "$series_json" | jq ".tags += [$tag_id]")
+    curl -s -X PUT -H "Content-Type: application/json" -d "$updated_series_json" "${BASE_URL}/series/${sonarr_series_id}?apikey=$SONARR_APIKEY"
+fi
+
