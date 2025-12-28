@@ -1,0 +1,34 @@
+#!/bin/bash
+
+# -------------------------------
+# Einstellungen
+# -------------------------------
+
+# Sonarr Anbindung
+SONARR_IP="10.10.10.5"
+SONARR_PORT="8989"
+SONARR_APIKEY="b340163d89c344f695fd46f7e76fc1c8"
+
+# API Basis-URL
+BASE_URL="http://${SONARR_IP}:${SONARR_PORT}/api/v3"
+
+# Serien abfragen, die beendet sind
+series_json=$(curl -s -G "${BASE_URL}/series" --data-urlencode "apikey=${SONARR_APIKEY}" | jq '[.[] | select(.status=="ended")]')
+
+# Durch jede Serie iterieren
+echo "$series_json" | jq -r '.[] | .title + "|" + (.id|tostring)' | while IFS="|" read -r title id; do
+    # Episoden dieser Serie abfragen
+    episodes_json=$(curl -s -G "${BASE_URL}/episode" --data-urlencode "seriesId=${id}" --data-urlencode "apikey=${SONARR_APIKEY}")
+    
+    # Episoden filtern: Staffel != 0 und kein AirDate
+    filtered_episodes=$(echo "$episodes_json" | jq -r '.[] | select(.seasonNumber != 0 and (.airDate == null or .airDate == "")) | "\(.seasonNumber|tostring) \(.episodeNumber|tostring) \(.title)"')
+    
+    # Nur ausgeben, wenn es Episoden gibt
+    if [[ -n "$filtered_episodes" ]]; then
+        echo "$title"
+        while read -r season episode ep_title; do
+            # führende Nullen in Bash
+            printf "    - S%02dE%02d: %s\n" "$season" "$episode" "$ep_title"
+        done <<< "$filtered_episodes"
+    fi
+done
