@@ -1,6 +1,10 @@
 #!/bin/bash
 
 SETTINGS="/etc/arr_scripts"
+
+###############################################################################
+
+# load settings
 if [ ! -f "${SETTINGS}" ]; then
   echo "❎ Settings-Datei nicht lesbar: ${SETTINGS}"
   exit 1
@@ -8,16 +12,14 @@ else
   source "${SETTINGS}"
 fi
 
-# API Basis-URL
+# sonarr api call function
 BASE_URL="http://${SONARR_IP}:${SONARR_PORT}/api/v3"
-
-# API Call zu Sonarr
 sonarr_api() {
     local endpoint="$1"
     curl -s -H "X-Api-Key: $SONARR_APIKEY" "http://$SONARR_IP:$SONARR_PORT/api/v3/$endpoint"
 }
 
-# Prüfen, ob Datei eine Metadaten-Datei ist
+# metafile check function
 is_metadata_file() {
     local filename="$1"
     case "$filename" in
@@ -27,36 +29,38 @@ is_metadata_file() {
     esac
 }
 
-# serien-JSON abrufen
+# cycle through all tv shows
 series_json=$(sonarr_api "series")
-
 echo "$series_json" | jq -c '.[]' | while read -r serie; do
 
+  # get some metadata
   series_path=$(echo "$serie" | jq -r '.path')
+  series_title=$(echo "$serie" | jq -r '.title')
+  series_id=$(echo "$serie" | jq -r '.id')
+
+  # ignore if path doesn't exist (i.e. has no files)
   if [ ! -d "$series_path" ]; then
       continue
   fi
 
-  series_title=$(echo "$serie" | jq -r '.title')
-  series_id=$(echo "$serie" | jq -r '.id')
-
-  known_files=$(sonarr_api "episodefile?seriesId=$series_id" | jq -r '.[].relativePath')
+  # cycle through all files in dir
   orphan_files=()
-
+  known_files=$(sonarr_api "episodefile?seriesId=$series_id" | jq -r '.[].relativePath')
   while IFS= read -r file; do
         filename=$(basename "$file")
 
-        # Metadaten-Dateien überspringen
+        # ignore metafiles files
         if is_metadata_file "$filename"; then
             continue
         fi
 
-        # Prüfen, ob die Datei bekannt ist
+        # check if sonarr knows this file
         if ! echo "$known_files" | grep -Fxq "$filename"; then
             orphan_files+=("$filename")
         fi
     done < <(find "$series_path" -type f)
 
+    # if there are orphans, list them
     if [ ${#orphan_files[@]} -gt 0 ]; then
         echo "$series_title:"
         for f in "${orphan_files[@]}"; do
