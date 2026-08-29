@@ -1,0 +1,112 @@
+#!/bin/bash
+
+env > /config/env.log
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+SETTINGS="$SCRIPT_DIR/config"
+
+###############################################################################
+
+# load settings
+if [ ! -f "${SETTINGS}" ]; then
+  echo "❎ Settings-Datei nicht lesbar: ${SETTINGS}"
+  exit 1
+else
+  source "${SETTINGS}"
+fi
+
+# call by sonarr or radarr?
+if [[ -n "$sonarr_eventtype" ]]; then
+  if [ "$sonarr_eventtype" != "Download" ]; then
+    exit 0
+  fi
+  APP="Sonarr"
+  EVENTTYPE="$sonarr_eventtype"
+  ID="$sonarr_series_id"
+  TITLE="$sonarr_series_title"
+  BASE_URL="http://${SONARR_IP}:${SONARR_PORT}/api/v3"
+  API_KEY="$SONARR_APIKEY"
+  OBJECT_ENDPOINT="series"
+elif [[ -n "$radarr_eventtype" ]]; then
+  if [ "$radarr_eventtype" != "Download" ]; then
+    exit 0
+  fi
+  APP="Radarr"
+  EVENTTYPE="$radarr_eventtype"
+  ID="$radarr_movie_id"
+  TITLE="$radarr_movie_title"
+  BASE_URL="http://${RADARR_IP}:${RADARR_PORT}/api/v3"
+  API_KEY="$RADARR_APIKEY"
+  OBJECT_ENDPOINT="movie"
+else
+  echo "❎ This script may only be called by Radarr or Sonarr!"
+  exit 1
+fi
+
+###############################################################################
+
+# API helper
+api() {
+  curl -fsS \
+       -H "X-Api-Key: ${API_KEY}" \
+       "$@"
+}
+
+###############################################################################
+
+# get tag id if it already exists
+existing_tags=$(api "${BASE_URL}/tag") || {
+  echo "❎ Fetching tags from ${APP} failed."
+  exit 1
+}
+tag_id=$(echo "$existing_tags" | jq -r \
+    --arg tag "$NEW_TAG" \
+    '.[] | select(.label == $tag) | .id')
+
+# create tag if necessary
+if [[ -z "$tag_id" ]]; then
+  create_tag_payload=$(jq -n --arg tag "$NEW_TAG" '{label: $tag}')
+  api -X POST \
+      -H "Content-Type: application/json" \
+      -d "$create_tag_payload" \
+      "${BASE_URL}/tag" >/dev/null || {
+        echo "❎ Creating tag '${NEW_TAG}' in ${APP} failed."
+        exit 1
+      }
+  existing_tags=$(api "${BASE_URL}/tag") || {
+    echo "❎ Fetching tags from ${APP} failed."
+    exit 1
+  }
+  tag_id=$(echo "$existing_tags" | jq -r \
+    --arg tag "$NEW_TAG" \
+    '.[] | select(.label == $tag) | .id')
+  if [[ -z "$tag_id" || "$tag_id" == "null" ]]; then
+    echo "❎ Creating tag '${NEW_TAG}' in ${APP} failed."
+    exit 1
+  fi
+fi
+
+# get object json from radarr/sonarr
+object_json=$(api "${BASE_URL}/${OBJECT_ENDPOINT}/${ID}") || {
+  echo "❎ Retrieving object json from ${APP} failed."
+  exit 1
+}
+
+# check if object already has the tag
+if echo "$object_json" | jq -e --argjson tag_id "$tag_id" '.tags | index($tag_id) != null' >/dev/null; then
+  exit 0
+fi
+
+# add tag
+updated_object_json=$(echo "$object_json" | jq --argjson tag_id "$tag_id" '.tags += [$tag_id]') || {
+  echo "❎ Adding the tag failed."
+  exit 1
+}
+api -X PUT \
+    -H "Content-Type: application/json" \
+    -d "$updated_object_json" \
+    "${BASE_URL}/${OBJECT_ENDPOINT}/${ID}" >/dev/null || {
+      echo "❎ Adding the tag failed."
+      exit 1
+    }
+
+exit 0
