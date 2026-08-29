@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Sonarr connection details
-RADARR_IP="10.10.10.15"
+RADARR_IP="10.10.10.5"
 RADARR_PORT="7878"
 RADARR_APIKEY="f5475c2a432b4b889c76532b70963719"
 
