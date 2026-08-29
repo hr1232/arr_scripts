@@ -1,7 +1,11 @@
 #!/bin/bash
 
 # Sonarr connection details
+<<<<<<< HEAD:config.example
 RADARR_IP="1.1.1.1"
+=======
+RADARR_IP="10.10.10.5"
+>>>>>>> 5f466920010664b3b0778139e1c9be9bc55a3e9b:config
 RADARR_PORT="7878"
 RADARR_APIKEY="abcdefghijklmnnopqrstuvwxyz12345"
 
