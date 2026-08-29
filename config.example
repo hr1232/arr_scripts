@@ -1,14 +1,14 @@
 #!/bin/bash
 
 # Sonarr connection details
-RADARR_IP="10.10.10.15"
+RADARR_IP="1.1.1.1"
 RADARR_PORT="7878"
-RADARR_APIKEY="f5475c2a432b4b889c76532b70963719"
+RADARR_APIKEY="abcdefghijklmnnopqrstuvwxyz12345"
 
 # Sonarr connection details
-SONARR_IP="10.10.10.5"
+SONARR_IP="1.1.1.1"
 SONARR_PORT="8989"
-SONARR_APIKEY="b340163d89c344f695fd46f7e76fc1c8"
+SONARR_APIKEY="abcdefghijklmnnopqrstuvwxyz12345"
 
 # Flags
 NEW_TAG="vidconv-new"           # flag to be added when new episodes were added
